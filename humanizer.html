@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Humanizer — Strip the Robot Out</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1a1714;
+    --paper: #f5f0e8;
+    --warm: #e8dfc8;
+    --accent: #c84b2f;
+    --accent2: #2b6cb0;
+    --muted: #8a7f72;
+    --border: #c8bfaa;
+    --glow: rgba(200, 75, 47, 0.15);
+    --font-display: 'Syne', sans-serif;
+    --font-serif: 'Instrument Serif', serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-display);
+    min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse at 20% 0%, rgba(200,75,47,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 100%, rgba(43,108,176,0.05) 0%, transparent 60%);
+    overflow-x: hidden;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.5;
+  }
+
+  .container {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* Header */
+  header {
+    padding: 48px 0 32px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 48px;
+  }
+
+  .header-inner {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .brand {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .brand-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  h1 {
+    font-size: clamp(36px, 5vw, 56px);
+    font-weight: 800;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+  }
+
+  h1 em {
+    font-style: italic;
+    font-family: var(--font-serif);
+    color: var(--accent);
+    font-weight: 400;
+  }
+
+  .tagline {
+    font-family: var(--font-serif);
+    font-size: 17px;
+    color: var(--muted);
+    font-style: italic;
+    max-width: 280px;
+    line-height: 1.5;
+  }
+
+  /* Main layout */
+  .editor-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    background: white;
+    box-shadow: 0 2px 24px rgba(0,0,0,0.06), 0 0 0 1px var(--border);
+    min-height: 420px;
+  }
+
+  .panel {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  .panel:first-child {
+    border-right: 1px solid var(--border);
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--warm);
+  }
+
+  .panel-title {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  .char-count {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+    opacity: 0.7;
+  }
+
+  textarea {
+    flex: 1;
+    border: none;
+    outline: none;
+    resize: none;
+    padding: 20px 18px;
+    font-family: var(--font-serif);
+    font-size: 15.5px;
+    line-height: 1.75;
+    color: var(--ink);
+    background: white;
+    width: 100%;
+    min-height: 360px;
+  }
+
+  textarea::placeholder {
+    color: var(--muted);
+    opacity: 0.5;
+    font-style: italic;
+  }
+
+  /* Output panel */
+  .output-panel {
+    background: white;
+    flex: 1;
+    padding: 20px 18px;
+    font-family: var(--font-serif);
+    font-size: 15.5px;
+    line-height: 1.75;
+    color: var(--ink);
+    min-height: 360px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-y: auto;
+    position: relative;
+  }
+
+  .output-placeholder {
+    color: var(--muted);
+    opacity: 0.4;
+    font-style: italic;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .output-text {
+    animation: fadeIn 0.4s ease;
+  }
+
+  /* Streaming cursor */
+  .cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1.1em;
+    background: var(--accent);
+    vertical-align: text-bottom;
+    margin-left: 1px;
+    animation: blink 0.8s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Action bar */
+  .action-bar {
+    padding: 24px 0 0;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .btn-humanize {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 14px 28px;
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-humanize::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0.15);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .btn-humanize:hover::before { opacity: 1; }
+  .btn-humanize:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(200,75,47,0.3); }
+  .btn-humanize:active { transform: translateY(0); }
+  .btn-humanize:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .btn-copy {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--ink);
+    padding: 13px 20px;
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+    letter-spacing: 0.02em;
+  }
+
+  .btn-copy:hover { background: var(--warm); border-color: var(--ink); }
+  .btn-copy:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .btn-clear {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    padding: 8px 4px;
+    transition: color 0.2s;
+    margin-left: auto;
+  }
+
+  .btn-clear:hover { color: var(--accent); }
+
+  /* Status bar */
+  .status-bar {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 24px;
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    opacity: 0.3;
+    transition: all 0.3s;
+    flex-shrink: 0;
+  }
+
+  .status-dot.active {
+    background: var(--accent);
+    opacity: 1;
+    animation: pulse 1.2s infinite;
+  }
+
+  .status-dot.done {
+    background: #3a9e6e;
+    opacity: 1;
+    animation: none;
+  }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(200,75,47,0.4); }
+    50% { box-shadow: 0 0 0 5px rgba(200,75,47,0); }
+  }
+
+  .status-text {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+  }
+
+  /* Tags / badges */
+  .badge-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 36px;
+  }
+
+  .badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--muted);
+    background: var(--warm);
+  }
+
+  /* Spinner icon */
+  .spin {
+    display: inline-block;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Error state */
+  .error-msg {
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 12px 16px;
+    background: rgba(200,75,47,0.06);
+    border-left: 3px solid var(--accent);
+    border-radius: 2px;
+    margin-top: 12px;
+    display: none;
+  }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .editor-grid { grid-template-columns: 1fr; }
+    .panel:first-child { border-right: none; border-bottom: 1px solid var(--border); }
+    .header-inner { flex-direction: column; align-items: flex-start; }
+    .tagline { max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-label">AI Writing Tool</span>
+        <h1>Human<em>izer</em></h1>
+      </div>
+      <p class="tagline">Paste in the robot-speak. Get back something that sounds like a person wrote it.</p>
+    </div>
+  </header>
+
+  <div class="editor-grid">
+    <!-- Input -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Input — AI slop goes here</span>
+        <span class="char-count" id="charCount">0 chars</span>
+      </div>
+      <textarea
+        id="inputText"
+        placeholder="Paste in something that sounds like it was written by a language model. The more stilted and robotic, the better..."
+        spellcheck="false"
+      ></textarea>
+    </div>
+
+    <!-- Output -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Output — humanized</span>
+        <span class="char-count" id="outCharCount">—</span>
+      </div>
+      <div class="output-panel" id="outputPanel">
+        <span class="output-placeholder" id="outputPlaceholder">Your humanized text will appear here, streaming in as it's generated...</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="action-bar">
+    <button class="btn-humanize" id="btnHumanize">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a5 5 0 1 0 0 10A5 5 0 0 0 12 2z"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
+      Humanize
+    </button>
+    <button class="btn-copy" id="btnCopy" disabled>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      Copy result
+    </button>
+    <button class="btn-clear" id="btnClear">Clear all</button>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-dot" id="statusDot"></div>
+    <span class="status-text" id="statusText">Ready</span>
+  </div>
+
+  <div class="error-msg" id="errorMsg"></div>
+
+  <div class="badge-list">
+    <span class="badge">Strips significance inflation</span>
+    <span class="badge">Kills -ing pileup</span>
+    <span class="badge">Removes em dash abuse</span>
+    <span class="badge">Buries "delve"</span>
+    <span class="badge">Adds actual voice</span>
+    <span class="badge">Powered by Claude</span>
+  </div>
+
+  <div style="height: 64px;"></div>
+</div>
+
+<script>
+const SYSTEM_PROMPT = `You are a writing editor that strips AI-generated patterns from text to make it sound human. You have deeply internalized these rules:
+
+PATTERNS TO ELIMINATE:
+- Significance inflation: "stands as", "serves as", "marks a pivotal moment", "testament to", "underscores", "highlights its importance", "evolving landscape", "indelible mark"
+- Promotional language: "boasts", "vibrant", "groundbreaking", "nestled", "breathtaking", "stunning", "renowned", "must-visit", "rich cultural heritage"
+- Superficial -ing phrases tacked on for fake depth: "symbolizing...", "reflecting...", "contributing to...", "highlighting...", "underscoring..."
+- Vague attributions: "experts argue", "industry observers note", "some critics suggest"
+- Em dash overuse — especially for dramatic pauses — like this
+- Rule of three: "X, Y, and Z" lists that just pad length
+- Synonym cycling: "The tool serves as a catalyst. The assistant functions as a partner. The system stands as a foundation."
+- Negative parallelism: "It's not just X, it's Y"
+- False ranges: "from X to Y, from A to B"
+- Chatbot artifacts: "Great question!", "I hope this helps!", "Let me know if..."
+- AI vocabulary: "delve", "tapestry", "nuanced", "multifaceted", "fostering", "elevate", "empower", "leverage", "robust", "seamless", "realm", "crucial", "vital", "pivotal"
+- Excessive hedging: "could potentially possibly be argued"
+- Generic positive conclusions: "the future looks bright", "exciting times lie ahead"
+- Hollow filler: "In order to", "At its core", "It is important to note that"
+- Hyphenated word pair overuse: "data-driven", "cross-functional", "client-facing", "high-quality" used constantly
+
+WHAT GOOD WRITING HAS:
+- Opinions, not just neutral reporting
+- Varied rhythm: short punchy sentences, then longer ones
+- Specifics instead of vague claims
+- First person when it fits
+- Acknowledged complexity and mixed feelings
+- Natural mess — tangents, asides, the occasional half-formed thought
+
+PROCESS:
+1. Do a full rewrite removing all AI patterns above
+2. Audit it: what still reads like AI?
+3. Revise again to fix remaining tells
+
+OUTPUT FORMAT:
+Return ONLY the final humanized text. No preamble, no explanation, no "Here is the humanized version:". Just the rewritten text itself.`;
+
+const inputEl = document.getElementById('inputText');
+const outputPanel = document.getElementById('outputPanel');
+const outputPlaceholder = document.getElementById('outputPlaceholder');
+const btnHumanize = document.getElementById('btnHumanize');
+const btnCopy = document.getElementById('btnCopy');
+const btnClear = document.getElementById('btnClear');
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const charCount = document.getElementById('charCount');
+const outCharCount = document.getElementById('outCharCount');
+const errorMsg = document.getElementById('errorMsg');
+
+let outputContent = '';
+let isStreaming = false;
+let cursorEl = null;
+
+// Char counter
+inputEl.addEventListener('input', () => {
+  const n = inputEl.value.length;
+  charCount.textContent = n ? `${n.toLocaleString()} chars` : '0 chars';
+});
+
+function setStatus(state, msg) {
+  statusText.textContent = msg;
+  statusDot.className = 'status-dot';
+  if (state === 'active') statusDot.classList.add('active');
+  if (state === 'done') statusDot.classList.add('done');
+}
+
+function showError(msg) {
+  errorMsg.textContent = msg;
+  errorMsg.style.display = 'block';
+}
+
+function hideError() {
+  errorMsg.style.display = 'none';
+}
+
+function appendCursor() {
+  cursorEl = document.createElement('span');
+  cursorEl.className = 'cursor';
+  outputPanel.appendChild(cursorEl);
+}
+
+function removeCursor() {
+  if (cursorEl) { cursorEl.remove(); cursorEl = null; }
+}
+
+btnHumanize.addEventListener('click', async () => {
+  const text = inputEl.value.trim();
+  if (!text) {
+    setStatus('', 'Paste some text first.');
+    return;
+  }
+  if (isStreaming) return;
+
+  isStreaming = true;
+  hideError();
+  outputContent = '';
+  outputPanel.innerHTML = '';
+  appendCursor();
+  btnHumanize.disabled = true;
+  btnCopy.disabled = true;
+  btnHumanize.innerHTML = `<span class="spin">⟳</span> Working...`;
+  setStatus('active', 'Stripping the robot out...');
+  outCharCount.textContent = '...';
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1500,
+        stream: true,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: text }]
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `HTTP ${response.status}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6).trim();
+        if (data === '[DONE]') continue;
+
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta') {
+            const chunk = parsed.delta.text;
+            outputContent += chunk;
+            removeCursor();
+            // Render text node
+            outputPanel.textContent = outputContent;
+            appendCursor();
+            outCharCount.textContent = `${outputContent.length.toLocaleString()} chars`;
+            outputPanel.scrollTop = outputPanel.scrollHeight;
+          }
+        } catch {}
+      }
+    }
+
+    removeCursor();
+    setStatus('done', `Done — ${outputContent.length.toLocaleString()} characters humanized`);
+    btnCopy.disabled = false;
+    outCharCount.textContent = `${outputContent.length.toLocaleString()} chars`;
+
+  } catch (e) {
+    removeCursor();
+    showError(`Error: ${e.message}`);
+    setStatus('', 'Something went wrong.');
+    outputPanel.innerHTML = '<span class="output-placeholder" style="opacity:0.4;font-style:italic;">Error — see below.</span>';
+  } finally {
+    isStreaming = false;
+    btnHumanize.disabled = false;
+    btnHumanize.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a5 5 0 1 0 0 10A5 5 0 0 0 12 2z"/><path d="M20 21a8 8 0 1 0-16 0"/></svg> Humanize`;
+  }
+});
+
+btnCopy.addEventListener('click', () => {
+  if (!outputContent) return;
+  navigator.clipboard.writeText(outputContent).then(() => {
+    const orig = btnCopy.innerHTML;
+    btnCopy.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+    setTimeout(() => { btnCopy.innerHTML = orig; }, 1800);
+  });
+});
+
+btnClear.addEventListener('click', () => {
+  inputEl.value = '';
+  outputContent = '';
+  outputPanel.innerHTML = '<span class="output-placeholder" id="outputPlaceholder">Your humanized text will appear here, streaming in as it\'s generated...</span>';
+  charCount.textContent = '0 chars';
+  outCharCount.textContent = '—';
+  btnCopy.disabled = true;
+  hideError();
+  setStatus('', 'Ready');
+});
+</script>
+</body>
+</html>
